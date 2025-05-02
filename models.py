@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, constr
 from enum import Enum
 from typing import Optional, List
 
@@ -10,14 +10,14 @@ class Status(str, Enum):
 
 # Modelo para el usuario
 class User(BaseModel):
-    email: str
-    password: str
+    email: constr(min_length=5, max_length=100)
+    password: constr(min_length=4, max_length=100)
 
 # Modelo para la tarea
 class Task(BaseModel):
-    title: str
-    description: str
-    due_date: str
+    title: constr(min_length=1, max_length=100)
+    description: Optional[str] = Field(default="")
+    due_date: constr(min_length=10, max_length=10)  # "YYYY-MM-DD"
     completed: bool
     user_id: str
     status: Optional[Status] = Field(default=Status.PENDIENTES)

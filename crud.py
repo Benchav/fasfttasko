@@ -57,8 +57,8 @@ def create_task(task: Task):
     ref = db.collection("tareas").document()
     task_data = task.dict()
 
-    # Asegurar valores por defecto
-    task_data.setdefault("status", "Pendiente")
+    # Asegurar valores por defecto para 'status' y 'tags'
+    task_data.setdefault("status", "Pendientes")
     task_data.setdefault("tags", [])
 
     # Validar que 'tags' sea una lista
@@ -74,9 +74,10 @@ def update_task(task_id: str, task: Task):
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     
     task_data = task.dict()
-    task_data.setdefault("status", "Pendiente")
+    task_data.setdefault("status", "Pendientes")
     task_data.setdefault("tags", [])
     
+    # Validar que 'tags' sea una lista
     if not isinstance(task_data["tags"], list):
         task_data["tags"] = []
 
