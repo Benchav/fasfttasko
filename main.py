@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from models import User, Task
 import crud
 from database import list_collections, sample_docs
+from typing import Optional
 
 app = FastAPI()
 
@@ -52,7 +53,16 @@ def login(user: User):
 
 # ——— Tareas ———
 @app.get("/tasks")
-def get_tasks():
+def get_tasks(status: Optional[str] = None):
+    """
+    Obtiene todas las tareas, opcionalmente filtradas por su status.
+    Valores de 'status' permitidos: Todas, Pendientes, En progreso, Completada
+    """
+    if status:
+        status = status.capitalize()  # Asegura que el valor de status esté correctamente capitalizado
+        if status not in ["Todas", "Pendientes", "En progreso", "Completada"]:
+            raise HTTPException(status_code=400, detail="Estado de tarea inválido. Usa 'Todas', 'Pendientes', 'En progreso' o 'Completada'.")
+        return [task for task in crud.get_all_tasks() if task["status"] == status or status == "Todas"]
     return crud.get_all_tasks()
 
 @app.get("/tasks/{task_id}")

@@ -5,7 +5,6 @@ from database import db
 # ——— USERS ———
 
 def get_all_users():
-    # Ahora apunta a la colección "users"
     return [doc.to_dict() | {"id": doc.id} for doc in db.collection("users").stream()]
 
 def get_user_by_id(user_id):
@@ -45,7 +44,6 @@ def login_user(email: str, password: str):
 # ——— TASKS ———
 
 def get_all_tasks():
-    # Ahora apunta a la colección "tareas"
     return [doc.to_dict() | {"id": doc.id} for doc in db.collection("tareas").stream()]
 
 def get_task_by_id(task_id):
@@ -56,14 +54,20 @@ def get_task_by_id(task_id):
 
 def create_task(task: Task):
     ref = db.collection("tareas").document()
-    ref.set(task.dict())
-    return {"id": ref.id, **task.dict()}
+    task_data = task.dict()
+    if "status" not in task_data or not task_data["status"]:
+        task_data["status"] = "Pendientes"  # Valor por defecto
+    ref.set(task_data)
+    return {"id": ref.id, **task_data}
 
 def update_task(task_id: str, task: Task):
     ref = db.collection("tareas").document(task_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    ref.update(task.dict())
+    task_data = task.dict()
+    if "status" not in task_data or not task_data["status"]:
+        task_data["status"] = "Pendientes"  # Valor por defecto
+    ref.update(task_data)
     return {"status": "updated"}
 
 def delete_task(task_id: str):
