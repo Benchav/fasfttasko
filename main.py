@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from models import User, Task
 import crud
 from database import list_collections, sample_docs
@@ -14,17 +14,14 @@ def root():
 # ——— Rutas de depuración ———
 @app.get("/debug/collections")
 async def debug_collections():
-    """
-    Lista todas las colecciones que ve Firestore según tu Service Account.
-    """
+    """Lista todas las colecciones que ve Firestore según tu Service Account."""
     return {"collections": list_collections()}
 
 @app.get("/debug/sample")
 async def debug_sample():
-    """
-    Devuelve un documento de ejemplo de tus colecciones 'users' y 'tareas'.
-    """
+    """Devuelve un documento de ejemplo de las colecciones 'users' y 'tareas'."""
     return sample_docs(["users", "tareas"])
+
 
 # ——— Usuarios ———
 @app.get("/users")
@@ -49,19 +46,18 @@ def delete_user(user_id: str):
 
 @app.post("/login")
 def login(user: User):
+    if not user.email or not user.password:
+        raise HTTPException(status_code=400, detail="Email y contraseña son requeridos.")
     return crud.login_user(user.email, user.password)
+
 
 # ——— Tareas ———
 @app.get("/tasks")
-def get_tasks(status: Optional[str] = None):
-    """
-    Obtiene todas las tareas, opcionalmente filtradas por su status.
-    Valores de 'status' permitidos: Todas, Pendientes, En progreso, Completada
-    """
+def get_tasks(status: Optional[str] = Query(None, description="Filtrar por estado: Todas, Pendientes, En progreso, Completada")):
     if status:
-        status = status.capitalize()  # Asegura que el valor de status esté correctamente capitalizado
+        status = status.capitalize()
         if status not in ["Todas", "Pendientes", "En progreso", "Completada"]:
-            raise HTTPException(status_code=400, detail="Estado de tarea inválido. Usa 'Todas', 'Pendientes', 'En progreso' o 'Completada'.")
+            raise HTTPException(status_code=400, detail="Estado de tarea inválido. Usa: Todas, Pendientes, En progreso o Completada.")
         return [task for task in crud.get_all_tasks() if task["status"] == status or status == "Todas"]
     return crud.get_all_tasks()
 
@@ -70,8 +66,8 @@ def get_task(task_id: str):
     return crud.get_task_by_id(task_id)
 
 @app.get("/tasks/user/{user_id}")
-def get_user_tasks(user_id: str):
-    return crud.get_tasks_by_user(user_id)
+def get_user_tasks(user_id: str, tag: Optional[str] = Query(None, description="Filtrar por etiqueta (tag)")):
+    return crud.get_tasks_by_user(user_id, tag)
 
 @app.post("/tasks")
 def create_task(task: Task):

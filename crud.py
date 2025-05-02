@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from typing import Optional
 from models import User, Task
 from database import db
 
@@ -55,8 +56,15 @@ def get_task_by_id(task_id):
 def create_task(task: Task):
     ref = db.collection("tareas").document()
     task_data = task.dict()
-    if "status" not in task_data or not task_data["status"]:
-        task_data["status"] = "Pendientes"  # Valor por defecto
+
+    # Asegurar valores por defecto
+    task_data.setdefault("status", "Pendiente")
+    task_data.setdefault("tags", [])
+
+    # Validar que 'tags' sea una lista
+    if not isinstance(task_data["tags"], list):
+        task_data["tags"] = []
+
     ref.set(task_data)
     return {"id": ref.id, **task_data}
 
@@ -64,9 +72,14 @@ def update_task(task_id: str, task: Task):
     ref = db.collection("tareas").document(task_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
+    
     task_data = task.dict()
-    if "status" not in task_data or not task_data["status"]:
-        task_data["status"] = "Pendientes"  # Valor por defecto
+    task_data.setdefault("status", "Pendiente")
+    task_data.setdefault("tags", [])
+    
+    if not isinstance(task_data["tags"], list):
+        task_data["tags"] = []
+
     ref.update(task_data)
     return {"status": "updated"}
 
@@ -77,8 +90,13 @@ def delete_task(task_id: str):
     ref.delete()
     return {"status": "deleted"}
 
-def get_tasks_by_user(user_id: str):
+def get_tasks_by_user(user_id: str, tag: Optional[str] = None):
+    query = db.collection("tareas").where("user_id", "==", user_id)
+    
+    if tag:
+        query = query.where("tags", "array_contains", tag)
+
     return [
         doc.to_dict() | {"id": doc.id}
-        for doc in db.collection("tareas").where("user_id", "==", user_id).stream()
+        for doc in query.stream()
     ]
