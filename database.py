@@ -12,12 +12,12 @@ load_dotenv()
 USE_EMULATOR = os.getenv("FIRESTORE_EMULATOR_HOST") is not None
 
 if USE_EMULATOR:
-    # — Emulador local —
+    # — Emulador local — 
     print("🔧 Conectando a Firestore en modo EMULADOR")
     # El project_id puede ser cualquiera en el emulador
     db = firestore.Client(project="demo-project")
 else:
-    # — Producción (Railway, etc.) —
+    # — Producción (Railway, etc.) — 
     print("🚀 Conectando a Firestore en modo PRODUCCIÓN")
 
     # 1) Leer JSON de servicio desde la variable serviceAccountKey
@@ -25,7 +25,7 @@ else:
     if not service_account_json:
         raise RuntimeError("⚠️ Falta la variable de entorno `serviceAccountKey` con el JSON de credenciales")
 
-    # Si lo almacenaste en Base64, descoméntalo:
+    # Si lo almacenaste en Base64, descomenta esto:
     # import base64
     # service_account_json = base64.b64decode(service_account_json).decode("utf-8")
 
