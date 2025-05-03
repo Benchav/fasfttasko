@@ -58,7 +58,7 @@ def get_tasks(status: Optional[str] = Query(None, description="Filtrar por estad
         status = status.capitalize()
         if status not in ["Todas", "Pendientes", "En progreso", "Completada"]:
             raise HTTPException(status_code=400, detail="Estado de tarea inválido. Usa: Todas, Pendientes, En progreso o Completada.")
-        return [task for task in crud.get_all_tasks() if task["status"] == status or status == "Todas"]
+        return crud.get_tasks_by_status(status)
     return crud.get_all_tasks()
 
 @app.get("/tasks/{task_id}")
@@ -66,8 +66,8 @@ def get_task(task_id: str):
     return crud.get_task_by_id(task_id)
 
 @app.get("/tasks/user/{user_id}")
-def get_user_tasks(user_id: str, tag: Optional[str] = Query(None, description="Filtrar por etiqueta (tag)")):
-    return crud.get_tasks_by_user(user_id, tag)
+def get_user_tasks(user_id: str, tag: Optional[str] = Query(None, description="Filtrar por etiqueta (tag)"), status: Optional[str] = Query(None, description="Filtrar por estado de tarea")):
+    return crud.get_tasks_by_user(user_id, tag, status)
 
 @app.post("/tasks")
 def create_task(task: Task):

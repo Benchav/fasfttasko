@@ -4,9 +4,9 @@ from typing import Optional, List
 
 # Enumeración para los estados válidos de una tarea
 class Status(str, Enum):
-    PENDIENTES = "Pendientes"
+    PENDIENTE = "Pendiente"
     EN_PROGRESO = "En progreso"
-    COMPLETA = "Completada"
+    COMPLETADA = "Completada"
 
 # Modelo para el usuario
 class User(BaseModel):
@@ -20,5 +20,5 @@ class Task(BaseModel):
     due_date: constr(min_length=10, max_length=10)  # "YYYY-MM-DD"
     completed: bool
     user_id: str
-    status: Optional[Status] = Field(default=Status.PENDIENTES)
+    status: Optional[Status] = Field(default=Status.PENDIENTE)
     tags: Optional[List[str]] = Field(default_factory=list)

@@ -3,7 +3,7 @@ from typing import Optional
 from models import User, Task
 from database import db
 
-# ——— USERS ———
+# ——— Usuarios ———
 
 def get_all_users():
     return [doc.to_dict() | {"id": doc.id} for doc in db.collection("users").stream()]
@@ -42,7 +42,18 @@ def login_user(email: str, password: str):
     return {"status": "success", "user_id": found[0].id}
 
 
-# ——— TASKS ———
+# ——— Tareas ———
+
+VALID_STATUSES = ["Pendientes", "En progreso", "Completada"]
+
+def normalize_status(status: str) -> str:
+    if status.lower() in ["pendiente", "pendientes"]:
+        return "Pendientes"
+    elif status.lower() in ["en progreso", "progreso"]:
+        return "En progreso"
+    elif status.lower() in ["completa", "completada"]:
+        return "Completada"
+    return "Pendientes"  # Por defecto
 
 def get_all_tasks():
     return [doc.to_dict() | {"id": doc.id} for doc in db.collection("tareas").stream()]
@@ -65,6 +76,8 @@ def create_task(task: Task):
     if not isinstance(task_data["tags"], list):
         task_data["tags"] = []
 
+    task_data["status"] = normalize_status(task_data["status"])
+
     ref.set(task_data)
     return {"id": ref.id, **task_data}
 
@@ -81,6 +94,8 @@ def update_task(task_id: str, task: Task):
     if not isinstance(task_data["tags"], list):
         task_data["tags"] = []
 
+    task_data["status"] = normalize_status(task_data["status"])
+
     ref.update(task_data)
     return {"status": "updated"}
 
@@ -91,13 +106,26 @@ def delete_task(task_id: str):
     ref.delete()
     return {"status": "deleted"}
 
-def get_tasks_by_user(user_id: str, tag: Optional[str] = None):
+def get_tasks_by_user(user_id: str, tag: Optional[str] = None, status: Optional[str] = None):
     query = db.collection("tareas").where("user_id", "==", user_id)
     
     if tag:
         query = query.where("tags", "array_contains", tag)
 
+    if status:
+        status = normalize_status(status)
+        query = query.where("status", "==", status)
+
     return [
         doc.to_dict() | {"id": doc.id}
         for doc in query.stream()
     ]
+
+def get_tasks_by_status(status: Optional[str] = None):
+    tasks_ref = db.collection("tareas")
+    
+    if status and status != "Todas":
+        status = normalize_status(status)
+        tasks_ref = tasks_ref.where("status", "==", status)
+    
+    return [doc.to_dict() | {"id": doc.id} for doc in tasks_ref.stream()]
