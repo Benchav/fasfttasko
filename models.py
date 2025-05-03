@@ -1,12 +1,13 @@
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, Field, constr, validator
 from enum import Enum
+from datetime import datetime
 from typing import Optional, List
 
 # Enumeración para los estados válidos de una tarea
 class Status(str, Enum):
-    PENDIENTE = "Pendiente"
+    PENDIENTES = "Pendientes"
     EN_PROGRESO = "En progreso"
-    COMPLETADA = "Completada"
+    COMPLETA = "Completada"
 
 # Modelo para el usuario
 class User(BaseModel):
@@ -17,8 +18,17 @@ class User(BaseModel):
 class Task(BaseModel):
     title: constr(min_length=1, max_length=100)
     description: Optional[str] = Field(default="")
-    due_date: constr(min_length=10, max_length=10)  # "YYYY-MM-DD"
+    due_date: str  # Se validará el formato con el validador
     completed: bool
     user_id: str
-    status: Optional[Status] = Field(default=Status.PENDIENTE)
+    status: Optional[Status] = Field(default=Status.PENDIENTES)
     tags: Optional[List[str]] = Field(default_factory=list)
+
+    @validator('due_date')
+    def validate_due_date_format(cls, v):
+        try:
+            # Verifica que el formato sea d-m-yyyy
+            datetime.strptime(v, "%d-%m-%Y")
+        except ValueError:
+            raise ValueError("La fecha debe estar en el formato d-m-yyyy")
+        return v
