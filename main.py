@@ -6,6 +6,18 @@ import crud
 from database import list_collections, sample_docs
 from typing import Optional, List
 
+
+task_example = {
+    "title": "Estudiar matemáticas",
+    "description": "Repasar álgebra y geometría",
+    "due_date": "05-05-2025",
+    "completed": False,
+    "user_id": "b0ZngTJpjvDhd9adfb97",
+    "status": "Pendiente",
+    "priority": "Media",
+    "tags": ["estudio", "importante"]
+}
+
 app = FastAPI(
     title="Tasko API",
     description="API para gestión de usuarios y tareas (formato de fecha: d-m-YYYY)",
@@ -74,20 +86,23 @@ task_example = {
     "user_id": "3sTrWtclLpAlctzEzRio"
 }
 
+
+
 # ——— Tareas ———
+
 @app.get("/tasks")
 def get_tasks(
     status: Optional[str] = Query(
         None,
-        description="Filtrar por estado: Todas, Pendientes, En progreso, Completada"
+        description="Filtrar por estado: Todas, Pendiente, En progreso, Completa"
     )
 ):
     if status:
         status = status.capitalize()
-        if status not in ["Todas", "Pendientes", "En progreso", "Completada"]:
+        if status not in ["Todas", "Pendiente", "En progreso", "Completa"]:
             raise HTTPException(
                 status_code=400,
-                detail="Estado de tarea inválido. Usa: Todas, Pendientes, En progreso o Completada."
+                detail="Estado de tarea inválido. Usa: Todas, Pendiente, En progreso o Completa."
             )
         return crud.get_tasks_by_status(status)
     return crud.get_all_tasks()
@@ -107,7 +122,7 @@ def get_user_tasks(
 @app.post(
     "/tasks",
     summary="Crear una nueva tarea",
-    description="Crea una tarea. La fecha (`due_date`) debe ir en formato `d-m-YYYY`.",
+    description="Crea una tarea. La fecha (`due_date`) debe ir en formato `dd-mm-YYYY`.",
 )
 def create_task(
     task: Task = Body(..., example=task_example)
@@ -118,7 +133,6 @@ def create_task(
             status_code=400,
             detail="Los campos 'title', 'due_date' y 'user_id' son requeridos."
         )
-
     return crud.create_task(task)
 
 @app.put("/tasks/{task_id}")
@@ -128,7 +142,6 @@ def update_task(task_id: str, task: Task):
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: str):
     return crud.delete_task(task_id)
-
 
 
 # ——— Notes ———

@@ -3,34 +3,41 @@ from enum import Enum
 from datetime import datetime
 from typing import Optional, List
 
-# Enumeración para los estados válidos de una tarea
-class Status(str, Enum):
-    PENDIENTES = "Pendientes"
-    EN_PROGRESO = "En progreso"
-    COMPLETA = "Completada"
 
 # Modelo para el usuario
 class User(BaseModel):
     email: constr(min_length=5, max_length=100)
     password: constr(min_length=4, max_length=100)
 
+
+class Status(str, Enum):
+    PENDIENTE = "Pendiente"
+    EN_PROGRESO = "En progreso"
+    COMPLETA = "Completada"
+
+class Priority(str, Enum):
+    BAJA = "Baja"
+    MEDIA = "Media"
+    ALTA = "Alta"
+
 # Modelo para la tarea
 class Task(BaseModel):
-    title: constr(min_length=1, max_length=100)
-    description: Optional[str] = Field(default="")
-    due_date: str  # Se validará el formato con el validador
-    completed: bool
-    user_id: str
-    status: Optional[Status] = Field(default=Status.PENDIENTES)
-    tags: Optional[List[str]] = Field(default_factory=list)
+    title: constr(min_length=1, max_length=100) = Field(..., description="Título de la tarea")
+    description: Optional[str] = Field("", description="Descripción detallada")
+    due_date: constr(min_length=10, max_length=10) = Field(..., description="Fecha límite dd-mm-YYYY")
+    completed: bool = Field(..., description="¿Está completada?")
+    user_id: str = Field(..., description="ID del usuario dueño")
+    status: Status = Field(default=Status.PENDIENTE, description="Estado de la tarea")
+    priority: Priority = Field(default=Priority.MEDIA, description="Prioridad de la tarea")
+    tags: List[str] = Field(default_factory=list, description="Etiquetas para filtrar/organizar")
 
     @validator('due_date')
     def validate_due_date_format(cls, v):
         try:
-            # Verifica que el formato sea d-m-yyyy
+            # Verifica que el formato sea dd-mm-YYYY
             datetime.strptime(v, "%d-%m-%Y")
         except ValueError:
-            raise ValueError("La fecha debe estar en el formato d-m-yyyy")
+            raise ValueError("La fecha debe estar en el formato dd-mm-YYYY")
         return v
     
    #Modelo de notas
