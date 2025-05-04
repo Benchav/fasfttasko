@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from models import User, Task
+from models import User, Task, Note
 import crud
 from database import list_collections, sample_docs
 from typing import Optional
@@ -130,6 +130,30 @@ def delete_task(task_id: str):
     return crud.delete_task(task_id)
 
 
+
+# ——— Notes ———
+
+@app.get("/notes")
+def list_notes():
+    return crud.get_all_notes()
+
+@app.get("/notes/{note_id}")
+def read_note(note_id: str):
+    return crud.get_note_by_id(note_id)
+
+@app.post("/notes")
+def create_note_endpoint(note: Note):
+    return crud.create_note(note.texto)
+
+@app.put("/notes/{note_id}")
+def update_note_endpoint(note_id: str, note: Note):
+    return crud.update_note(note_id, note.texto)
+
+@app.delete("/notes/{note_id}")
+def delete_note_endpoint(note_id: str):
+    return crud.delete_note(note_id)
+
+
 # ——— Manejo global de excepciones ———
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
@@ -140,3 +164,5 @@ async def general_exception_handler(request: Request, exc: Exception):
             "error": str(exc)
         }
     )
+
+

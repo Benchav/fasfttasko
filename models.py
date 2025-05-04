@@ -32,3 +32,7 @@ class Task(BaseModel):
         except ValueError:
             raise ValueError("La fecha debe estar en el formato d-m-yyyy")
         return v
+    
+   #Modelo de notas
+class Note(BaseModel):
+    texto: constr(min_length=1)

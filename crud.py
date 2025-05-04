@@ -1,6 +1,6 @@
 from fastapi import HTTPException
-from typing import Optional
-from models import User, Task
+from typing import Optional, List
+from models import User, Task, Note
 from database import db
 from datetime import datetime
 
@@ -149,3 +149,44 @@ def get_tasks_by_status(status: Optional[str] = None):
         tasks_ref = tasks_ref.where("status", "==", status)
 
     return [doc.to_dict() | {"id": doc.id} for doc in tasks_ref.stream()]
+
+
+
+# ——— Notas ———
+
+def get_all_notes() -> List[dict]:
+    """Devuelve todas las notas almacenadas."""
+    return [doc.to_dict() | {"id": doc.id} for doc in db.collection("notes").stream()]
+
+def get_note_by_id(note_id: str) -> dict:
+    """Devuelve una nota por su ID."""
+    doc = db.collection("notes").document(note_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+    return doc.to_dict() | {"id": doc.id}
+
+def create_note(texto: str) -> dict:
+    """Crea una nueva nota con el campo 'texto'."""
+    ref = db.collection("notes").document()
+    data = {
+        "texto": texto,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    ref.set(data)
+    return {"id": ref.id, **data}
+
+def update_note(note_id: str, texto: str) -> dict:
+    """Actualiza el campo 'texto' de una nota existente."""
+    ref = db.collection("notes").document(note_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+    ref.update({"texto": texto, "updated_at": datetime.utcnow().isoformat()})
+    return {"status": "updated"}
+
+def delete_note(note_id: str) -> dict:
+    """Elimina una nota por su ID."""
+    ref = db.collection("notes").document(note_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+    ref.delete()
+    return {"status": "deleted"}
