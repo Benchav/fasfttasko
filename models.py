@@ -35,4 +35,9 @@ class Task(BaseModel):
     
    #Modelo de notas
 class Note(BaseModel):
-    texto: constr(min_length=1)
+    user_id: constr(min_length=1) = Field(..., description="ID del usuario dueño de la nota")
+    title: constr(min_length=1, max_length=100) = Field(..., description="Título breve de la nota")
+    texto: constr(min_length=1) = Field(..., description="Contenido de la nota")
+    tags: Optional[List[constr(min_length=1)]] = Field(default_factory=list, description="Etiquetas para filtrar/organizar")
+    created_at: Optional[datetime] = Field(None, description="Fecha de creación")
+    updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización")

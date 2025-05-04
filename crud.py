@@ -165,23 +165,35 @@ def get_note_by_id(note_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     return doc.to_dict() | {"id": doc.id}
 
-def create_note(texto: str) -> dict:
-    """Crea una nueva nota con el campo 'texto'."""
-    ref = db.collection("notes").document()
+def create_note(user_id: str, title: str, texto: str, tags: Optional[List[str]] = None) -> dict:
+    """Crea una nueva nota con los campos definidos en el modelo."""
+    now = datetime.utcnow().isoformat()
     data = {
+        "user_id": user_id,
+        "title": title,
         "texto": texto,
-        "created_at": datetime.utcnow().isoformat()
+        "tags": tags or [],
+        "created_at": now,
+        "updated_at": now
     }
+    ref = db.collection("notes").document()
     ref.set(data)
     return {"id": ref.id, **data}
 
-def update_note(note_id: str, texto: str) -> dict:
-    """Actualiza el campo 'texto' de una nota existente."""
+def update_note(note_id: str, title: str, texto: str, tags: Optional[List[str]] = None) -> dict:
+    """Actualiza los campos `title`, `texto` y `tags` de una nota existente."""
     ref = db.collection("notes").document(note_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
-    ref.update({"texto": texto, "updated_at": datetime.utcnow().isoformat()})
-    return {"status": "updated"}
+
+    update_data = {
+        "updated_at": datetime.utcnow().isoformat(),
+        "texto": texto,
+        "title": title,
+        "tags": tags or []
+    }
+    ref.update(update_data)
+    return {"status": "updated", **update_data}
 
 def delete_note(note_id: str) -> dict:
     """Elimina una nota por su ID."""

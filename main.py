@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from models import User, Task, Note
 import crud
 from database import list_collections, sample_docs
-from typing import Optional
+from typing import Optional, List
 
 app = FastAPI(
     title="Tasko API",
@@ -143,11 +143,22 @@ def read_note(note_id: str):
 
 @app.post("/notes")
 def create_note_endpoint(note: Note):
-    return crud.create_note(note.texto)
+    # Nota: crud.create_note ahora debe aceptar user_id, title, texto y tags
+    return crud.create_note(
+        user_id=note.user_id,
+        title=note.title,
+        texto=note.texto,
+        tags=note.tags
+    )
 
 @app.put("/notes/{note_id}")
 def update_note_endpoint(note_id: str, note: Note):
-    return crud.update_note(note_id, note.texto)
+    return crud.update_note(
+        note_id=note_id,
+        title=note.title,
+        texto=note.texto,
+        tags=note.tags
+    )
 
 @app.delete("/notes/{note_id}")
 def delete_note_endpoint(note_id: str):
