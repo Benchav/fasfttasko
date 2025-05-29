@@ -11,25 +11,52 @@ class User(BaseModel):
 
 
 class Status(str, Enum):
-    PENDIENTE = "Pendiente"
+    PENDIENTE   = "Pendiente"
     EN_PROGRESO = "En progreso"
-    COMPLETA = "Completada"
+    COMPLETA    = "Completada"
 
 class Priority(str, Enum):
-    BAJA = "Baja"
+    BAJA  = "Baja"
     MEDIA = "Media"
-    ALTA = "Alta"
+    ALTA  = "Alta"
 
-# Modelo para la tarea
+class Step(BaseModel):
+    """Un paso o subtarea dentro de una tarea."""
+    description: constr(min_length=1, max_length=200) = Field(
+        ..., description="Descripción del paso"
+    )
+    completed: bool = Field(
+        False, description="Indica si el paso está completado"
+    )
+
 class Task(BaseModel):
-    title: constr(min_length=1, max_length=100) = Field(..., description="Título de la tarea")
-    description: Optional[str] = Field("", description="Descripción detallada")
-    due_date: constr(min_length=10, max_length=10) = Field(..., description="Fecha límite dd-mm-YYYY")
-    completed: bool = Field(..., description="¿Está completada?")
-    user_id: str = Field(..., description="ID del usuario dueño")
-    status: Status = Field(default=Status.PENDIENTE, description="Estado de la tarea")
-    priority: Priority = Field(default=Priority.MEDIA, description="Prioridad de la tarea")
-    tags: List[str] = Field(default_factory=list, description="Etiquetas para filtrar/organizar")
+    title: constr(min_length=1, max_length=100) = Field(
+        ..., description="Título de la tarea"
+    )
+    description: Optional[str] = Field(
+        "", description="Descripción detallada de la tarea"
+    )
+    due_date: constr(min_length=10, max_length=10) = Field(
+        ..., description="Fecha límite en formato dd-mm-YYYY"
+    )
+    completed: bool = Field(
+        False, description="Indica si la tarea está completada"
+    )
+    user_id: str = Field(
+        ..., description="ID del usuario dueño de la tarea"
+    )
+    status: Status = Field(
+        default=Status.PENDIENTE, description="Estado global de la tarea"
+    )
+    priority: Priority = Field(
+        default=Priority.MEDIA, description="Prioridad de la tarea"
+    )
+    tags: List[str] = Field(
+        default_factory=list, description="Etiquetas para filtrar/organizar"
+    )
+    steps: List[Step] = Field(
+        default_factory=list, description="Lista de pasos o subtareas"
+    )
 
     @validator('due_date')
     def validate_due_date_format(cls, v):

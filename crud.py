@@ -43,10 +43,11 @@ def login_user(email: str, password: str):
     return {"status": "success", "user_id": found[0].id}
 
 
+
 # ——— Tareas ———
 
-VALID_STATUSES = ["Pendiente", "En progreso", "Completada"]
-VALID_PRIORITIES = ["Baja", "Media", "Alta"]
+VALID_STATUSES    = ["Pendiente", "En progreso", "Completada"]
+VALID_PRIORITIES  = ["Baja", "Media", "Alta"]
 
 def normalize_status(status: str) -> str:
     sl = status.lower()
@@ -72,27 +73,36 @@ def get_task_by_id(task_id: str) -> dict:
     return doc.to_dict() | {"id": doc.id}
 
 def create_task(task: Task) -> dict:
-    # Convierte Pydantic a dict
     data = task.dict()
 
-    # Validar estado
+    # Normaliza y valida status
     data["status"] = normalize_status(data.get("status", "Pendiente"))
     if data["status"] not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Estado inválido. Usa uno de {VALID_STATUSES}")
 
-    # Validar prioridad
+    # Normaliza y valida priority
     data["priority"] = normalize_priority(data.get("priority", "Media"))
     if data["priority"] not in VALID_PRIORITIES:
         raise HTTPException(status_code=400, detail=f"Prioridad inválida. Usa uno de {VALID_PRIORITIES}")
 
     # Asegurar tags como lista
     tags = data.get("tags")
-    if not isinstance(tags, list):
-        data["tags"] = []
+    data["tags"] = tags if isinstance(tags, list) else []
 
-    # due_date ya validado por el modelo, opcionalmente puedes reconvertir formato
+    # Procesar steps como lista de dicts válidos
+    steps = data.get("steps")
+    normalized_steps = []
+    if isinstance(steps, list):
+        for s in steps:
+            if isinstance(s, dict) and "description" in s:
+                normalized_steps.append({
+                    "description": s["description"],
+                    "completed": bool(s.get("completed", False))
+                })
+    data["steps"] = normalized_steps
+
+    # Verifica formato de due_date
     try:
-        # reconfirma formato dd-mm-YYYY
         datetime.strptime(data["due_date"], "%d-%m-%Y")
     except ValueError:
         raise HTTPException(status_code=400, detail="La fecha debe estar en formato dd-mm-YYYY")
@@ -121,10 +131,21 @@ def update_task(task_id: str, task: Task) -> dict:
 
     # Asegurar tags como lista
     tags = data.get("tags")
-    if not isinstance(tags, list):
-        data["tags"] = []
+    data["tags"] = tags if isinstance(tags, list) else []
 
-    # Reconfirma formato de fecha
+    # Procesar steps como lista de dicts válidos
+    steps = data.get("steps")
+    normalized_steps = []
+    if isinstance(steps, list):
+        for s in steps:
+            if isinstance(s, dict) and "description" in s:
+                normalized_steps.append({
+                    "description": s["description"],
+                    "completed": bool(s.get("completed", False))
+                })
+    data["steps"] = normalized_steps
+
+    # Verifica formato de due_date
     try:
         datetime.strptime(data["due_date"], "%d-%m-%Y")
     except ValueError:
