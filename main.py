@@ -122,10 +122,24 @@ def get_user_tasks(
 @app.post(
     "/tasks",
     summary="Crear una nueva tarea",
-    description="Crea una tarea. La fecha (`due_date`) debe ir en formato `dd-mm-YYYY`.",
+    description=(
+        "Crea una tarea. La fecha (`due_date`) debe ir en formato `dd-mm-YYYY`. "
+        "Opcionalmente, se puede enviar `justification` en caso de que la tarea no se cumpla."
+    ),
 )
 def create_task(
-    task: Task = Body(..., example=task_example)
+    task: Task = Body(..., example={
+        # Ejemplo mínimo:
+        "title": "Comprar repuestos",
+        "description": "Ir a la tienda de autos a comprar pastillas de freno",
+        "due_date": "10-06-2025",
+        "user_id": "usuario123",
+        "status": "Pendiente",
+        "priority": "Media",
+        "tags": ["repuestos", "auto"],
+        "steps": [{"description": "Llamar a la tienda", "completed": False}],
+        "justification": ""  # Opcional: motivo si no se completa
+    })
 ):
     # Validación de parámetros antes de crear la tarea
     if not task.title or not task.due_date or not task.user_id:

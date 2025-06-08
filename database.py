@@ -1,64 +1,59 @@
 import os
 import json
+import traceback
 from dotenv import load_dotenv
 from google.cloud import firestore
 from google.oauth2 import service_account
 
 # ————— Carga de entorno —————
-# Solo necesario en desarrollo local para .env
+# En producción Vercel no usa .env, pero local sí.
 load_dotenv()
 
-# ————— Detectar entorno —————
-USE_EMULATOR = os.getenv("FIRESTORE_EMULATOR_HOST") is not None
+USE_EMULATOR = bool(os.getenv("FIRESTORE_EMULATOR_HOST"))
 
-if USE_EMULATOR:
-    # — Emulador local — 
-    print("🔧 Conectando a Firestore en modo EMULADOR")
-    # El project_id puede ser cualquiera en el emulador
-    db = firestore.Client(project="demo-project")
-else:
-    # — Producción (Railway, etc.) — 
-    print("🚀 Conectando a Firestore en modo PRODUCCIÓN")
+try:
+    if USE_EMULATOR:
+        # Conexión a emulador local
+        print("🔧 Conectando a Firestore en modo EMULADOR")
+        db = firestore.Client(project="demo-project")
+    else:
+        # Conexión en producción usando ENV VAR con JSON
+        print("🔐 Conectando a Firestore con credenciales desde ENV VARS")
 
-    # 1) Leer JSON de servicio desde la variable serviceAccountKey
-    service_account_json = os.getenv("serviceAccountKey")
-    if not service_account_json:
-        raise RuntimeError("⚠️ Falta la variable de entorno `serviceAccountKey` con el JSON de credenciales")
+        svc_json = os.getenv("SERVICE_ACCOUNT_KEY")
+        if not svc_json:
+            raise RuntimeError("⚠️ ENV VAR `SERVICE_ACCOUNT_KEY` vacía o no definida.")
 
-    # Si lo almacenaste en Base64, descomenta esto:
-    # import base64
-    # service_account_json = base64.b64decode(service_account_json).decode("utf-8")
+        # Si tu JSON lo pusiste en Base64, decodifícalo:
+        # import base64
+        # svc_json = base64.b64decode(svc_json).decode("utf-8")
 
-    info = json.loads(service_account_json)
-    credentials = service_account.Credentials.from_service_account_info(info)
+        info = json.loads(svc_json)
+        creds = service_account.Credentials.from_service_account_info(info)
 
-    # 2) Leer ID de proyecto
-    project_id = os.getenv("FIRESTORE_PROJECT_ID")
-    if not project_id:
-        raise RuntimeError("⚠️ Falta la variable de entorno `FIRESTORE_PROJECT_ID`")
+        project_id = os.getenv("FIRESTORE_PROJECT_ID")
+        if not project_id:
+            raise RuntimeError("⚠️ ENV VAR `FIRESTORE_PROJECT_ID` vacía o no definida.")
 
-    db = firestore.Client(project=project_id, credentials=credentials)
+        db = firestore.Client(project=project_id, credentials=creds)
 
-# ————— Debug de configuración —————
-print(f"[Firestore] Uso emulador? {USE_EMULATOR}")
-if not USE_EMULATOR:
-    print(f"[Firestore] Proyecto = {project_id}")
+    print(f"[Firestore] Uso emulador? {USE_EMULATOR}")
+    if not USE_EMULATOR:
+        print(f"[Firestore] Proyecto = {project_id}")
+
+except Exception as e:
+    # Capturamos cualquier fallo en la inicialización y lo logeamos
+    print("❌ Error inicializando Firestore:")
+    traceback.print_exc()
+    # Re-lanzamos para que Vercel marque la función como caída y veas el log
+    raise
 
 # ————— Función de utilidad: listar colecciones —————
 def list_collections():
-    """
-    Devuelve una lista con el nombre de todas las colecciones en Firestore.
-    Útil para depuración.
-    """
     return [col.id for col in db.collections()]
 
 # ————— Función de utilidad: muestreo de documentos —————
 def sample_docs(collection_names=None, limit=1):
-    """
-    Para cada nombre en collection_names, devuelve hasta `limit` documentos.
-    Si no se proporciona collection_names, usa todas las colecciones.
-    Útil para comprobar rápidamente que tus colecciones tienen datos.
-    """
     resp = {}
     names = collection_names or list_collections()
     for name in names:

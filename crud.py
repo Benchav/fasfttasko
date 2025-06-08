@@ -107,6 +107,10 @@ def create_task(task: Task) -> dict:
     except ValueError:
         raise HTTPException(status_code=400, detail="La fecha debe estar en formato dd-mm-YYYY")
 
+    # *No requiere validación extra para `justification`:
+    # Pydantic ya validó longitud máxima y tipo. Así que lo dejamos pasar:
+    # data["justification"] = data.get("justification", "")
+
     # Guarda en Firestore
     ref = db.collection("tareas").document()
     ref.set(data)
@@ -150,6 +154,8 @@ def update_task(task_id: str, task: Task) -> dict:
         datetime.strptime(data["due_date"], "%d-%m-%Y")
     except ValueError:
         raise HTTPException(status_code=400, detail="La fecha debe estar en formato dd-mm-YYYY")
+
+    # `justification` ya está en data y Pydantic verificó longitud, no necesitamos validarlo aquí.
 
     ref.update(data)
     return {"status": "updated"}

@@ -10,6 +10,7 @@ class User(BaseModel):
     password: constr(min_length=4, max_length=100)
 
 
+#Modelo para tareas
 class Status(str, Enum):
     PENDIENTE   = "Pendiente"
     EN_PROGRESO = "En progreso"
@@ -57,6 +58,9 @@ class Task(BaseModel):
     steps: List[Step] = Field(
         default_factory=list, description="Lista de pasos o subtareas"
     )
+    justification: Optional[constr(max_length=500)] = Field(
+        "", description="Justificación de por qué no se cumplió la tarea (máx. 500 caracteres)"
+    )
 
     @validator('due_date')
     def validate_due_date_format(cls, v):
@@ -66,6 +70,8 @@ class Task(BaseModel):
         except ValueError:
             raise ValueError("La fecha debe estar en el formato dd-mm-YYYY")
         return v
+
+
     
    #Modelo de notas
 class Note(BaseModel):
