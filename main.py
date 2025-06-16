@@ -1,57 +1,69 @@
-from fastapi import FastAPI, HTTPException, Query, Body, Request
+from fastapi import FastAPI, HTTPException, Request, Path, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from models import User, Task, Note
+from typing import List
+import logging
 import crud
+
+from models import (
+    User, Note,
+    TaskCreate, TaskUpdate, TaskInDB,
+    FocusTimeCreate, FocusTimeUpdate, FocusTimeInDB, FocusSummaryOut
+)
+
 from database import list_collections, sample_docs
-from typing import Optional, List
-
-
-task_example = {
-    "title": "Estudiar matemáticas",
-    "description": "Repasar álgebra y geometría",
-    "due_date": "05-05-2025",
-    "completed": False,
-    "user_id": "b0ZngTJpjvDhd9adfb97",
-    "status": "Pendiente",
-    "priority": "Media",
-    "tags": ["estudio", "importante"]
-}
 
 app = FastAPI(
     title="Tasko API",
-    description="API para gestión de usuarios y tareas (formato de fecha: d-m-YYYY)",
-    version="1.0.0",
+    description="API para gestión de usuarios, tareas, notas y modo enfoque",
+    version="2.0.0",
 )
 
-# ——— CORS ———
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # o p.ej. ["http://localhost:3000"]
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ——— Ruta base ———
-@app.get("/")
-def root():
-    return {"message": "API Tasko funcionando"}
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-# ——— Rutas de depuración ———
+# Rutas básicas
+@app.get("/")
+def read_root():
+    return {"message": "Bienvenido a Tasko API"}
+
 @app.get("/debug/collections")
-async def debug_collections():
+async def get_collections():
     return {"collections": list_collections()}
 
 @app.get("/debug/sample")
-async def debug_sample():
+async def get_sample():
     return sample_docs(["users", "tareas"])
 
+# Simulación de tiempos
+@app.get("/simular-tiempos")
+async def simular_tiempos(
+    sin_paginacion: float = 13.0,
+    con_paginacion: float = 0.64,
+    total: int = 100,
+    paginados: int = 10
+):
+    logging.info(f"Comparativa: sin paginación {sin_paginacion}s, con paginación {con_paginacion}s")
+    return {
+        "mensaje": "Simulación completada",
+        "tiempo_sin": f"{sin_paginacion} segundos",
+        "tiempo_con": f"{con_paginacion} segundos",
+        "usuarios": [{"id": i, "nombre": f"Usuario {i}"} for i in range(paginados)]
+    }
 
-# ——— Usuarios ———
+# Usuarios
 @app.get("/users")
-def get_users():
-    return crud.get_all_users()
+def list_users():
+    return {"usuarios": crud.get_all_users()}
 
 @app.get("/users/{user_id}")
 def get_user(user_id: str):
@@ -72,94 +84,97 @@ def delete_user(user_id: str):
 @app.post("/login")
 def login(user: User):
     if not user.email or not user.password:
-        raise HTTPException(status_code=400, detail="Email y contraseña son requeridos.")
+        raise HTTPException(status_code=400, detail="Email y contraseña requeridos")
     return crud.login_user(user.email, user.password)
 
+# Tareas
+@app.get("/tasks", response_model=List[TaskInDB], summary="Listar todas las tareas")
+async def get_tasks():
+    """
+    Devuelve todas las tareas.
+    """
+    try:
+        records = crud.get_all_tasks()
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-# Ejemplo de body para crear tarea (se mostrará en Swagger)
-task_example = {
-    "title": "Matematica",
-    "description": "Entrega viernes",
-    "due_date": "2-5-2025",       # formato d-m-YYYY
-    "status": "Pendientes",
-    "tags": ["importante", "estudio"],
-    "user_id": "3sTrWtclLpAlctzEzRio"
-}
+
+@app.get("/tasks/{task_id}", response_model=TaskInDB, summary="Obtener tarea por ID")
+async def get_task(task_id: str = Path(..., description="ID de la tarea")):
+    """
+    Obtiene una tarea por su ID.
+    """
+    try:
+        record = crud.get_task_by_id(task_id)
+        return record
+    except HTTPException:
+        # Propaga 404 si no existe
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/tasks/user/{user_id}", response_model=List[TaskInDB], summary="Listar tareas de un usuario")
+async def get_tasks_by_user(user_id: str = Path(..., description="ID del usuario")):
+    """
+    Obtiene las tareas asociadas a un usuario.
+    """
+    try:
+        records = crud.get_tasks_by_user(user_id)
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ——— Tareas ———
 
-@app.get("/tasks")
-def get_tasks(
-    status: Optional[str] = Query(
-        None,
-        description="Filtrar por estado: Todas, Pendiente, En progreso, Completa"
-    )
+@app.post("/tasks", response_model=TaskInDB, status_code=status.HTTP_201_CREATED, summary="Crear nueva tarea")
+async def create_task_endpoint(payload: TaskCreate):
+    """
+    Crea una nueva tarea. Devuelve la tarea creada con su ID.
+    """
+    try:
+        record = crud.create_task(payload)
+        return record
+    except HTTPException:
+        # Propaga validaciones (400, etc.)
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/tasks/{task_id}", response_model=TaskInDB, summary="Actualizar tarea completa")
+async def update_task_endpoint(
+    task_id: str = Path(..., description="ID de la tarea a actualizar"),
+    payload: TaskUpdate = ...,
 ):
-    if status:
-        status = status.capitalize()
-        if status not in ["Todas", "Pendiente", "En progreso", "Completa"]:
-            raise HTTPException(
-                status_code=400,
-                detail="Estado de tarea inválido. Usa: Todas, Pendiente, En progreso o Completa."
-            )
-        return crud.get_tasks_by_status(status)
-    return crud.get_all_tasks()
-
-@app.get("/tasks/{task_id}")
-def get_task(task_id: str):
-    return crud.get_task_by_id(task_id)
-
-@app.get("/tasks/user/{user_id}")
-def get_user_tasks(
-    user_id: str,
-    tag: Optional[str] = Query(None, description="Filtrar por etiqueta (tag)"),
-    status: Optional[str] = Query(None, description="Filtrar por estado de tarea")
-):
-    return crud.get_tasks_by_user(user_id, tag, status)
-
-@app.post(
-    "/tasks",
-    summary="Crear una nueva tarea",
-    description=(
-        "Crea una tarea. La fecha (`due_date`) debe ir en formato `dd-mm-YYYY`. "
-        "Opcionalmente, se puede enviar `justification` en caso de que la tarea no se cumpla."
-    ),
-)
-def create_task(
-    task: Task = Body(..., example={
-        # Ejemplo mínimo:
-        "title": "Comprar repuestos",
-        "description": "Ir a la tienda de autos a comprar pastillas de freno",
-        "due_date": "10-06-2025",
-        "user_id": "usuario123",
-        "status": "Pendiente",
-        "priority": "Media",
-        "tags": ["repuestos", "auto"],
-        "steps": [{"description": "Llamar a la tienda", "completed": False}],
-        "justification": ""  # Opcional: motivo si no se completa
-    })
-):
-    # Validación de parámetros antes de crear la tarea
-    if not task.title or not task.due_date or not task.user_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Los campos 'title', 'due_date' y 'user_id' son requeridos."
-        )
-    return crud.create_task(task)
-
-@app.put("/tasks/{task_id}")
-def update_task(task_id: str, task: Task):
-    return crud.update_task(task_id, task)
-
-@app.delete("/tasks/{task_id}")
-def delete_task(task_id: str):
-    return crud.delete_task(task_id)
+    """
+    Actualiza todos los campos de la tarea indicada. Devuelve la tarea actualizada.
+    """
+    try:
+        updated = crud.update_task(task_id, payload)
+        return updated
+    except HTTPException:
+        # Propaga 404 o 400 si falla validación o no existe
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ——— Notes ———
+@app.delete("/tasks/{task_id}", status_code=status.HTTP_200_OK, summary="Eliminar tarea por ID")
+async def delete_task_endpoint(task_id: str = Path(..., description="ID de la tarea a eliminar")):
+    """
+    Elimina la tarea indicada. Devuelve {"status": "deleted"}.
+    """
+    try:
+        result = crud.delete_task(task_id)
+        return result
+    except HTTPException:
+        # Propaga 404 si no existe
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+# Notas
 @app.get("/notes")
 def list_notes():
     return crud.get_all_notes()
@@ -169,38 +184,89 @@ def read_note(note_id: str):
     return crud.get_note_by_id(note_id)
 
 @app.post("/notes")
-def create_note_endpoint(note: Note):
-    # Nota: crud.create_note ahora debe aceptar user_id, title, texto y tags
-    return crud.create_note(
-        user_id=note.user_id,
-        title=note.title,
-        texto=note.texto,
-        tags=note.tags
-    )
+def create_note(note: Note):
+    return crud.create_note(note.user_id, note.title, note.texto, note.tags)
 
 @app.put("/notes/{note_id}")
-def update_note_endpoint(note_id: str, note: Note):
-    return crud.update_note(
-        note_id=note_id,
-        title=note.title,
-        texto=note.texto,
-        tags=note.tags
-    )
+def update_note(note_id: str, note: Note):
+    return crud.update_note(note_id, note.title, note.texto, note.tags)
 
 @app.delete("/notes/{note_id}")
-def delete_note_endpoint(note_id: str):
+def delete_note(note_id: str):
     return crud.delete_note(note_id)
 
 
-# ——— Manejo global de excepciones ———
+
+
+
+#FOCUSTIME
+
+@app.post("/focus-times", response_model=FocusTimeInDB)
+async def create_focus(payload: FocusTimeCreate):
+    """
+    Crea un nuevo registro de FocusTime (incluye user_id de la tarea).
+    """
+    try:
+        rec = await crud.create_focus_time(payload)
+        return FocusTimeInDB(**rec)
+    except ValueError as ve:
+        # Tarea no encontrada → 404
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception:
+        logger.exception("Error interno al crear FocusTime")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@app.put("/focus-times/{focus_id}", response_model=FocusTimeInDB)
+async def update_focus(focus_id: str, payload: FocusTimeUpdate):
+    """
+    Actualiza minutos de un FocusTime existente.
+    """
+    try:
+        rec = await crud.update_focus_time(focus_id, payload)
+        return FocusTimeInDB(**rec)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception:
+        logger.exception("Error interno al actualizar FocusTime")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@app.get("/tasks/{task_id}/focus-times", response_model=List[FocusTimeInDB])
+async def list_focus_by_task(task_id: str):
+    """
+    Lista todos los FocusTime de una tarea, ordenados por fecha.
+    """
+    recs = await crud.get_focus_by_task(task_id)
+    if not recs:
+        raise HTTPException(status_code=404, detail="No se encontraron registros")
+    return recs
+
+
+@app.get(
+    "/focus-times/summary/{user_id}",
+    response_model=List[FocusSummaryOut],
+    summary="Resumen de FocusTime por tarea",
+    description="Lista tareas de un usuario con total de minutos en foco, ordenadas."
+)
+async def focus_summary_by_user(user_id: str):
+    """
+    Resumen de minutos en FocusTime por cada tarea del usuario.
+    """
+    try:
+        data = await crud.get_total_focus_time_by_user(user_id)
+        return data
+    except Exception:
+        logger.exception("Error interno al obtener resumen de FocusTime")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Manejador global: convierte cualquier excepción no capturada en 500.
+    """
     return JSONResponse(
         status_code=500,
-        content={
-            "message": "Ha ocurrido un error inesperado",
-            "error": str(exc)
-        }
+        content={"message": "Error interno del servidor", "error": str(exc)}
     )
-
-

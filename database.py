@@ -6,25 +6,30 @@ from google.cloud import firestore
 from google.oauth2 import service_account
 
 # ————— Carga de entorno —————
-# En producción Vercel no usa .env, pero local sí.
+# En producción (Vercel) no usa .env, pero local sí.
 load_dotenv()
 
+# Detecta si queremos usar el emulador local
 USE_EMULATOR = bool(os.getenv("FIRESTORE_EMULATOR_HOST"))
 
 try:
     if USE_EMULATOR:
         # Conexión a emulador local
+        # Asegúrate de arrancar el emulador con:
+        #   gcloud beta emulators firestore start --project=demo-project
+        # y de exportar:
+        #   export FIRESTORE_EMULATOR_HOST="localhost:8080"
         print("🔧 Conectando a Firestore en modo EMULADOR")
         db = firestore.Client(project="demo-project")
     else:
-        # Conexión en producción usando ENV VAR con JSON
+        # Conexión a Firestore real usando credenciales en ENV VARS
         print("🔐 Conectando a Firestore con credenciales desde ENV VARS")
 
         svc_json = os.getenv("SERVICE_ACCOUNT_KEY")
         if not svc_json:
             raise RuntimeError("⚠️ ENV VAR `SERVICE_ACCOUNT_KEY` vacía o no definida.")
 
-        # Si tu JSON lo pusiste en Base64, decodifícalo:
+        # Si tu JSON está en Base64, descoméntalo:
         # import base64
         # svc_json = base64.b64decode(svc_json).decode("utf-8")
 
@@ -41,7 +46,7 @@ try:
     if not USE_EMULATOR:
         print(f"[Firestore] Proyecto = {project_id}")
 
-except Exception as e:
+except Exception:
     # Capturamos cualquier fallo en la inicialización y lo logeamos
     print("❌ Error inicializando Firestore:")
     traceback.print_exc()

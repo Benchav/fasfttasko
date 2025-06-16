@@ -10,7 +10,8 @@ class User(BaseModel):
     password: constr(min_length=4, max_length=100)
 
 
-#Modelo para tareas
+
+# Enums:
 class Status(str, Enum):
     PENDIENTE   = "Pendiente"
     EN_PROGRESO = "En progreso"
@@ -21,8 +22,8 @@ class Priority(str, Enum):
     MEDIA = "Media"
     ALTA  = "Alta"
 
+# Submodelo Step:
 class Step(BaseModel):
-    """Un paso o subtarea dentro de una tarea."""
     description: constr(min_length=1, max_length=200) = Field(
         ..., description="Descripción del paso"
     )
@@ -30,7 +31,8 @@ class Step(BaseModel):
         False, description="Indica si el paso está completado"
     )
 
-class Task(BaseModel):
+# Modelo base con campos comunes (sin id):
+class TaskBase(BaseModel):
     title: constr(min_length=1, max_length=100) = Field(
         ..., description="Título de la tarea"
     )
@@ -65,11 +67,51 @@ class Task(BaseModel):
     @validator('due_date')
     def validate_due_date_format(cls, v):
         try:
-            # Verifica que el formato sea dd-mm-YYYY
             datetime.strptime(v, "%d-%m-%Y")
         except ValueError:
             raise ValueError("La fecha debe estar en el formato dd-mm-YYYY")
         return v
+
+# Modelo para creación (idéntico a TaskBase, ya que todos los campos required salvo defaults):
+class TaskCreate(TaskBase):
+    pass
+
+# Modelo para actualización vía PUT (requiere enviar todos los campos excepto id, igual a TaskBase)
+class TaskUpdate(TaskBase):
+    pass
+
+# Si quisieras PATCH (solo campos opcionales), podrías:
+class TaskPartialUpdate(BaseModel):
+    title: Optional[constr(min_length=1, max_length=100)]
+    description: Optional[str]
+    due_date: Optional[constr(min_length=10, max_length=10)]
+    completed: Optional[bool]
+    user_id: Optional[str]
+    status: Optional[Status]
+    priority: Optional[Priority]
+    tags: Optional[List[str]]
+    steps: Optional[List[Step]]
+    justification: Optional[constr(max_length=500)]
+
+    @validator('due_date')
+    def validate_due_date_format_optional(cls, v):
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, "%d-%m-%Y")
+        except ValueError:
+            raise ValueError("La fecha debe estar en el formato dd-mm-YYYY")
+        return v
+
+# Modelo de respuesta, incluye id y timestamps si quieres:
+class TaskInDB(TaskBase):
+    id: str = Field(..., description="ID de la tarea")
+    # Podrías incluir created_at, updated_at si los guardas:
+    # created_at: datetime
+    # updated_at: Optional[datetime]
+
+    class Config:
+        orm_mode = True
 
 
     
@@ -81,3 +123,32 @@ class Note(BaseModel):
     tags: Optional[List[constr(min_length=1)]] = Field(default_factory=list, description="Etiquetas para filtrar/organizar")
     created_at: Optional[datetime] = Field(None, description="Fecha de creación")
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización")
+
+
+# --- Modelos existentes ---
+
+class FocusTimeCreate(BaseModel):
+    task_id: str = Field(..., description="ID de la tarea asociada")
+    minutes: int = Field(..., gt=0, description="Minutos que el usuario pasó en Focus Mode")
+
+class FocusTimeUpdate(BaseModel):
+    minutes: int = Field(..., gt=0, description="Minutos actualizados acumulados")
+
+class FocusTimeInDB(FocusTimeCreate):
+    id: str = Field(..., description="ID generado del registro de FocusTime")
+    user_id: str = Field(..., description="ID del usuario dueño de la tarea")
+    created_at: datetime = Field(..., description="Fecha de creación del registro")
+    updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización")
+
+    class Config:
+        orm_mode = True  # o from_attributes en Pydantic v2
+
+# --- Nuevo schema para el resumen ---
+
+class FocusSummaryOut(BaseModel):
+    task_id: str
+    task_title: str
+    total_minutes: int
+
+    class Config:
+        orm_mode = True  # o from_attributes
